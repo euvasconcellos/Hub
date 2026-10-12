@@ -1,7 +1,7 @@
 {
 "name": "Meu Hub",
 "short_name": "Hub",
-"start_url": "/NOME-DO-REPOSITORIO-DO-AMIGO/",
+"start_url": "/Hub/",
   "display": "standalone",
   "background_color": "#0d1117",
   "theme_color": "#0d1117",
