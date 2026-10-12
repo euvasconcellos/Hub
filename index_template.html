@@ -1,0 +1,1154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meu Hub</title>
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d1117; --bg-card:#161b22; --bg-card-hover:#1c2430;
+  --border:#30363d; --border-subtle:#21262d;
+  --text:#e6edf3; --text-muted:#7d8590; --text-dim:#484f58;
+  --claude:#d97706; --claude-dim:#78350f;
+  --chatgpt:#10a37f; --chatgpt-dim:#064e3b;
+  --adapta:#6366f1; --adapta-dim:#312e81;
+  --green:#3fb950; --red:#f85149; --yellow:#d29922; --blue:#58a6ff;
+  --r:10px; --rs:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;min-height:100vh}
+
+#login-screen {
+  position:fixed;inset:0;background:var(--bg);
+  z-index:9000;display:flex;align-items:center;
+  justify-content:center;flex-direction:column;
+}
+.login-card {
+  width:360px;background:var(--bg-card);
+  border:1px solid var(--border);border-radius:16px;padding:36px;
+}
+.login-logo{font-size:22px;font-weight:700;margin-bottom:4px}
+.login-logo span{color:var(--blue)}
+.login-sub{color:var(--text-muted);font-size:13px;margin-bottom:28px;line-height:1.5}
+.login-error{
+  display:none;background:rgba(248,81,73,.1);
+  border:1px solid rgba(248,81,73,.3);border-radius:var(--rs);
+  padding:8px 12px;color:var(--red);font-size:12px;margin-bottom:12px;
+}
+.btn-login{
+  width:100%;padding:10px;border-radius:var(--rs);border:none;
+  background:var(--blue);color:#000;font-size:14px;font-weight:600;
+  cursor:pointer;transition:all .15s;margin-top:6px;
+}
+.btn-login:hover{filter:brightness(1.1)}
+.btn-login:disabled{opacity:.6;cursor:not-allowed;filter:none}
+.login-hint{
+  margin-top:20px;padding-top:20px;border-top:1px solid var(--border-subtle);
+  color:var(--text-dim);font-size:11px;text-align:center;line-height:1.6;
+}
+.login-hint a{color:var(--text-muted);cursor:pointer;text-decoration:underline}
+
+#app{display:none}
+
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(13,17,23,.96);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border-subtle);
+  display:flex;align-items:center;gap:10px;
+  padding:0 22px;height:52px;overflow-x:auto;
+}
+.logo{font-size:15px;font-weight:700;letter-spacing:-.3px;white-space:nowrap;margin-right:4px}
+.logo span{color:var(--blue)}
+.topbar-clock{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-dim);white-space:nowrap}
+.topbar-div{width:1px;height:22px;background:var(--border-subtle);flex-shrink:0}
+.topbar-links{display:flex;align-items:center;gap:6px;flex:1;overflow-x:auto}
+
+.ql{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 11px;border-radius:var(--rs);
+  font-size:12px;font-weight:500;text-decoration:none;
+  border:1px solid transparent;transition:all .15s;
+  white-space:nowrap;flex-shrink:0;position:relative;cursor:pointer;
+}
+.ql:hover{filter:brightness(1.15)}
+.ql.claude {background:var(--claude-dim);color:#fbbf24;border-color:#92400e}
+.ql.chatgpt{background:var(--chatgpt-dim);color:#34d399;border-color:#065f46}
+.ql.adapta {background:var(--adapta-dim);color:#a5b4fc;border-color:#3730a3}
+.ql.custom {background:var(--border-subtle);color:var(--text-muted);border-color:var(--border)}
+.ql.custom:hover{color:var(--text);background:var(--border)}
+.ql-del{
+  display:none;position:absolute;top:-6px;right:-6px;
+  width:16px;height:16px;border-radius:50%;
+  background:var(--red);color:#fff;font-size:10px;
+  align-items:center;justify-content:center;
+  cursor:pointer;border:none;line-height:1;
+}
+
+.ql-edit{
+  display:none;position:absolute;top:-6px;left:-6px;
+  width:16px;height:16px;border-radius:50%;
+  background:var(--blue);color:#000;font-size:9px;
+  align-items:center;justify-content:center;
+  cursor:pointer;border:none;line-height:1;
+}
+.ql:hover .ql-edit{display:flex}
+.ql-edit:hover{filter:brightness(1.2)}
+.ql:hover .ql-del{display:flex}
+
+.btn-add-ql{
+  width:26px;height:26px;border-radius:var(--rs);
+  background:transparent;border:1px dashed var(--border);
+  color:var(--text-dim);cursor:pointer;font-size:16px;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;flex-shrink:0;
+}
+.btn-add-ql:hover{border-color:var(--blue);color:var(--blue)}
+
+.topbar-right{display:flex;align-items:center;gap:6px;margin-left:auto;flex-shrink:0}
+.btn-ghost{
+  display:flex;align-items:center;gap:5px;
+  padding:5px 10px;border-radius:var(--rs);
+  font-size:12px;font-weight:500;cursor:pointer;
+  background:transparent;color:var(--text-muted);
+  border:1px solid var(--border);transition:all .15s;white-space:nowrap;
+}
+.btn-ghost:hover{background:var(--bg-card);color:var(--text)}
+.btn-ghost.logout:hover{color:var(--red);border-color:var(--red)}
+
+.banner{
+  background:linear-gradient(135deg,rgba(63,185,80,.07),rgba(88,166,255,.07));
+  border-bottom:1px solid rgba(88,166,255,.2);
+  padding:9px 22px;display:flex;align-items:center;gap:10px;
+  font-size:12px;color:var(--text-muted);
+}
+.banner strong{color:var(--blue)}
+.banner a{color:var(--blue);cursor:pointer;text-decoration:underline}
+
+.tabs-nav{
+  position:sticky;top:52px;z-index:99;
+  background:rgba(13,17,23,.96);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--border-subtle);
+  display:flex;align-items:flex-end;padding:0 22px;overflow-x:auto;
+}
+.tab{
+  display:flex;align-items:center;gap:7px;padding:10px 14px;
+  font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;
+  border-bottom:2px solid transparent;transition:all .15s;
+  white-space:nowrap;background:transparent;border-top:none;border-left:none;border-right:none;
+}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--text);border-bottom-color:var(--blue)}
+.tab-del{
+  display:none;width:15px;height:15px;border-radius:50%;
+  background:var(--border-subtle);color:var(--text-dim);
+  font-size:9px;align-items:center;justify-content:center;
+  cursor:pointer;border:none;margin-left:2px;
+}
+.tab:hover .tab-del{display:flex}
+.tab-del:hover{background:var(--red);color:#fff}
+.tab-edit{
+  display:none;width:15px;height:15px;border-radius:50%;
+  background:var(--border-subtle);color:var(--text-dim);
+  font-size:9px;align-items:center;justify-content:center;
+  cursor:pointer;border:none;margin-left:2px;
+}
+.tab:hover .tab-edit{display:flex}
+.tab-edit:hover{background:var(--blue);color:#000}
+.tab-add{
+  padding:10px 12px;font-size:18px;color:var(--text-dim);
+  cursor:pointer;background:transparent;border:none;transition:color .15s;
+}
+.tab-add:hover{color:var(--blue)}
+
+.main{padding:26px 22px;max-width:1400px;margin:0 auto}
+
+.section{margin-bottom:32px}
+.section-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.section-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:3px 11px;border-radius:20px;
+  font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+}
+.section-badge.claude {background:var(--claude-dim);color:#fbbf24;border:1px solid #92400e}
+.section-badge.chatgpt{background:var(--chatgpt-dim);color:#34d399;border:1px solid #065f46}
+.section-badge.adapta {background:var(--adapta-dim);color:#a5b4fc;border:1px solid #3730a3}
+.section-badge.default{background:var(--border-subtle);color:var(--text-muted);border:1px solid var(--border)}
+.section-line{flex:1;height:1px;background:var(--border-subtle)}
+.btn-sec{
+  padding:3px 9px;border-radius:var(--rs);font-size:11px;
+  color:var(--text-dim);border:1px solid var(--border-subtle);
+  background:transparent;cursor:pointer;transition:all .15s;
+}
+.btn-sec:hover{color:var(--text-muted);border-color:var(--border)}
+.btn-sec.danger:hover{color:var(--red);border-color:var(--red)}
+
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:13px}
+
+.card{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--r);padding:17px;
+  transition:all .2s;position:relative;overflow:hidden;
+}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.card.claude::before {background:linear-gradient(90deg,var(--claude),transparent)}
+.card.chatgpt::before{background:linear-gradient(90deg,var(--chatgpt),transparent)}
+.card.adapta::before {background:linear-gradient(90deg,var(--adapta),transparent)}
+.card.default::before{background:linear-gradient(90deg,var(--blue),transparent)}
+.card:hover{background:var(--bg-card-hover);border-color:#444c56}
+.card.minimized .card-body,.card.minimized .card-footer{display:none}
+.card.minimized .card-header{margin-bottom:0}
+
+.card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;cursor:grab}
+.card-chosen .card-header{cursor:grabbing}
+.card-ghost{opacity:.35;background:var(--bg-card) !important;border:1px dashed var(--blue) !important}
+.card-chosen{box-shadow:0 8px 24px rgba(0,0,0,.45)}
+.card-icon{font-size:20px;margin-bottom:4px;display:block}
+.card-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px}
+.card-subtitle{font-size:11px;color:var(--text-dim)}
+.card-controls{display:flex;gap:3px;flex-shrink:0}
+.card-btn{
+  width:25px;height:25px;border-radius:5px;border:1px solid var(--border-subtle);
+  background:transparent;color:var(--text-dim);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;font-size:11px;
+}
+.card-btn:hover{background:var(--border-subtle);color:var(--text-muted)}
+.card-btn.danger:hover{background:rgba(248,81,73,.1);color:var(--red);border-color:var(--red)}
+
+.card-body{margin-bottom:11px}
+.card-desc{font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:11px}
+
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:11px}
+.tag{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:500;font-family:'JetBrains Mono',monospace;background:var(--border-subtle);color:var(--text-muted);border:1px solid var(--border-subtle)}
+.tag.n8n      {color:#fb923c;border-color:rgba(251,146,60,.3);background:rgba(251,146,60,.08)}
+.tag.whatsapp {color:#4ade80;border-color:rgba(74,222,128,.3);background:rgba(74,222,128,.08)}
+.tag.evolution{color:#a78bfa;border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.08)}
+.tag.rag      {color:#38bdf8;border-color:rgba(56,189,248,.3);background:rgba(56,189,248,.08)}
+.tag.supabase {color:#34d399;border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.08)}
+.tag.skip     {color:#c084fc;border-color:rgba(192,132,252,.3);background:rgba(192,132,252,.08)}
+.tag.llm      {color:#f472b6;border-color:rgba(244,114,182,.3);background:rgba(244,114,182,.08)}
+.tag.lgpd     {color:#facc15;border-color:rgba(250,204,21,.3);background:rgba(250,204,21,.08)}
+.tag.gdocs    {color:#f472b6;border-color:rgba(244,114,182,.3);background:rgba(244,114,182,.08)}
+.tag.gcalendar{color:#a78bfa;border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.08)}
+.tag.github   {color:#c084fc;border-color:rgba(192,132,252,.3);background:rgba(192,132,252,.08)}
+
+.gh-status{
+  display:flex;align-items:center;gap:7px;padding:6px 9px;
+  background:rgba(22,27,34,.8);border:1px solid var(--border-subtle);
+  border-radius:var(--rs);margin-bottom:9px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);
+}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot.green {background:var(--green);box-shadow:0 0 5px var(--green)}
+.dot.red   {background:var(--red)}
+.dot.load  {background:var(--text-dim);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+.card-links{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.card-link span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card-link{
+  display:flex;align-items:center;gap:8px;padding:6px 8px;
+  border-radius:var(--rs);text-decoration:none;color:var(--text-muted);
+  font-size:12px;border:1px solid transparent;transition:all .15s;
+}
+.card-link:hover{background:var(--border-subtle);color:var(--text);border-color:var(--border)}
+.card-link svg{width:13px;height:13px;flex-shrink:0;opacity:.7}
+.card-link:hover svg{opacity:1}
+
+.card-footer{border-top:1px solid var(--border-subtle);padding-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+.btn-open-all{
+  display:flex;align-items:center;gap:5px;padding:5px 12px;
+  border-radius:var(--rs);font-size:12px;font-weight:600;cursor:pointer;
+  background:rgba(88,166,255,.1);color:var(--blue);
+  border:1px solid rgba(88,166,255,.3);transition:all .15s;
+}
+.btn-open-all:hover{background:rgba(88,166,255,.2)}
+.btn-edit-card{
+  display:flex;align-items:center;gap:5px;padding:5px 10px;
+  border-radius:var(--rs);font-size:12px;cursor:pointer;
+  background:transparent;color:var(--text-dim);
+  border:1px solid var(--border-subtle);transition:all .15s;
+}
+.btn-edit-card:hover{background:var(--border-subtle);color:var(--text-muted)}
+
+/* ── LAUNCHER DE LINKS ── */
+.launch-link{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:var(--rs);text-decoration:none;color:var(--text);border:1px solid var(--border);background:var(--bg);transition:all .15s;margin-bottom:7px;font-size:13px}
+.launch-link:hover{background:var(--bg-card-hover);border-color:var(--blue);color:var(--blue)}
+.launch-link svg{width:14px;height:14px;flex-shrink:0;opacity:.7;transition:.15s}
+.launch-link:hover svg{opacity:1}
+.launch-link .ll-lbl{flex:1}
+.launch-link .ll-arr{color:var(--text-dim);font-size:12px;transition:.15s}
+.launch-link:hover .ll-arr{color:var(--blue)}
+.launch-link.opened{opacity:.35;pointer-events:none}
+.launch-link.opened .ll-lbl{text-decoration:line-through;color:var(--text-dim)}
+.launch-counter{text-align:center;font-size:12px;color:var(--text-dim);padding:6px 0 2px;font-family:'JetBrains Mono',monospace}
+
+.empty-add{
+  border:1px dashed var(--border);border-radius:var(--r);padding:26px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:7px;color:var(--text-dim);cursor:pointer;transition:all .15s;min-height:90px;
+}
+.empty-add:hover{border-color:var(--blue);color:var(--text-muted);background:rgba(88,166,255,.03)}
+.empty-add span{font-size:12px}
+
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.72);
+  display:flex;align-items:center;justify-content:center;
+  z-index:1000;opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:14px;padding:24px;width:490px;
+  max-width:95vw;max-height:88vh;overflow-y:auto;
+}
+.modal-title{font-size:17px;font-weight:600;margin-bottom:4px}
+.modal-sub{color:var(--text-muted);font-size:12px;margin-bottom:18px}
+
+.form-group{margin-bottom:13px}
+.form-row{display:grid;grid-template-columns:76px 1fr;gap:10px;align-items:start}
+.form-label{display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px}
+.form-input,.form-select,.form-textarea{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--rs);padding:8px 11px;
+  color:var(--text);font-size:13px;font-family:'Inter',sans-serif;
+  outline:none;transition:border-color .15s;
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--blue)}
+.form-textarea{resize:vertical;min-height:64px}
+.form-select option{background:var(--bg-card)}
+
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.btn-cancel{
+  padding:7px 15px;border-radius:var(--rs);border:1px solid var(--border);
+  background:transparent;color:var(--text-muted);font-size:13px;cursor:pointer;transition:all .15s;
+}
+.btn-cancel:hover{background:var(--border-subtle);color:var(--text)}
+.btn-save{
+  padding:7px 20px;border-radius:var(--rs);border:none;
+  background:var(--blue);color:#000;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+}
+.btn-save:hover{filter:brightness(1.1)}
+
+.sql-block{
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);
+  padding:12px;font-family:'JetBrains Mono',monospace;font-size:11px;
+  color:#79c0ff;white-space:pre;overflow-x:auto;margin-bottom:12px;
+}
+.info-box{
+  background:rgba(88,166,255,.06);border:1px solid rgba(88,166,255,.2);
+  border-radius:var(--rs);padding:10px 12px;font-size:12px;
+  color:var(--text-muted);margin-bottom:12px;line-height:1.6;
+}
+.info-box strong{color:var(--blue)}
+
+.toast{
+  position:fixed;bottom:20px;right:20px;
+  background:var(--bg-card);border:1px solid var(--border);
+  border-radius:var(--rs);padding:8px 16px;font-size:13px;color:var(--text);
+  z-index:9999;opacity:0;transform:translateY(6px);transition:all .2s;pointer-events:none;
+}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.err{border-color:var(--red);color:var(--red)}
+.toast.ok {border-color:var(--green);color:var(--green)}
+
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#444c56}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">Meu <span>Hub</span></div>
+    <p class="login-sub">Acesso restrito. Faça login com sua conta Supabase para continuar.</p>
+    <div id="login-error" class="login-error"></div>
+    <div class="form-group">
+      <label class="form-label">E-mail</label>
+      <input type="email" class="form-input" id="login-email" placeholder="seu@email.com"
+             onkeydown="if(event.key==='Enter') document.getElementById('login-password').focus()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Senha</label>
+      <input type="password" class="form-input" id="login-password" placeholder="••••••••"
+             onkeydown="if(event.key==='Enter') signIn()">
+    </div>
+    <button class="btn-login" id="login-btn" onclick="signIn()">Entrar</button>
+    <div class="login-hint">
+      Sem conta ainda? Crie pelo Supabase Dashboard<br>
+      <a onclick="openConfigModal(); document.getElementById('login-screen').style.zIndex=8999">
+        Ver instruções de configuração →
+      </a>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <header class="topbar" id="topbar"></header>
+  <div class="banner" id="banner" style="display:none">
+    ⚠️ <strong>Modo local</strong> — edições ficam só neste navegador.
+    <a onclick="openConfigModal()">Configurar Supabase para salvar em nuvem →</a>
+  </div>
+  <nav class="tabs-nav" id="tabs-nav"></nav>
+  <main class="main" id="main"></main>
+</div>
+
+<div class="modal-overlay" id="overlay" onclick="closeOut(event)">
+  <div class="modal" id="modal-box"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   CONFIGURAÇÃO — suas credenciais do Supabase
+═══════════════════════════════════════════════════════════════════════════ */
+const SUPABASE_URL = 'https://xxxxxxxx.supabase.co';
+const SUPABASE_KEY = 'eyXxxxxxxxxxxxxxxxxxxx...';
+  
+/* ── SUPABASE ── */
+let db = null;
+try {
+  if (SUPABASE_URL && SUPABASE_KEY) db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch(e) { console.warn('Supabase init:', e); }
+
+/* ── PALETA DE CORES ── */
+const GROUP_COLORS = {
+  default:{ name:'Neutro',   color:'#7d8590', border:'#30363d', bg:'#1c2128' },
+  claude: { name:'Laranja',  color:'#fbbf24', border:'#92400e', bg:'#78350f' },
+  chatgpt:{ name:'Verde',    color:'#34d399', border:'#065f46', bg:'#064e3b' },
+  adapta: { name:'Roxo',     color:'#a5b4fc', border:'#3730a3', bg:'#312e81' },
+  rose:   { name:'Rosa',     color:'#fb7185', border:'#9f1239', bg:'#4c0519' },
+  teal:   { name:'Teal',     color:'#2dd4bf', border:'#0f766e', bg:'#042f2e' },
+  indigo: { name:'Índigo',   color:'#818cf8', border:'#4338ca', bg:'#1e1b4b' },
+  red:    { name:'Vermelho', color:'#f87171', border:'#991b1b', bg:'#450a0a' },
+  amber:  { name:'Âmbar',    color:'#fcd34d', border:'#b45309', bg:'#451a03' },
+  cyan:   { name:'Ciano',    color:'#22d3ee', border:'#0e7490', bg:'#083344' },
+  coral:  { name:'Coral',    color:'#fb923c', border:'#c2410c', bg:'#431407' },
+  mint:   { name:'Menta',    color:'#6ee7b7', border:'#065f46', bg:'#022c22' },
+};
+
+function injectColorCSS() {
+  const s = document.createElement('style');
+  s.textContent = Object.entries(GROUP_COLORS).map(([k,c]) =>
+  `.section-badge.${k}{background:${c.bg};color:${c.color};border:1px solid ${c.border}}` +
+  `.card.${k}::before{background:linear-gradient(90deg,${c.color},transparent)}` +
+  `.ql.${k}{background:${c.bg};color:${c.color};border-color:${c.border}}`
+).join('');
+  document.head.appendChild(s);
+}
+
+function colorSelectHTML(elId, selected) {
+  return `<select class="form-select" id="${elId}">
+    ${Object.entries(GROUP_COLORS).map(([k,c]) =>
+      `<option value="${k}" ${k===selected?'selected':''}>${c.name}</option>`
+    ).join('')}
+  </select>`;
+}
+
+/* ── ÍCONES ── */
+const IC = {
+  n8n:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51L8.59 10.49"/></svg>`,
+  github:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"/></svg>`,
+  supabase:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.976 9.15c-2.172-.806-4.149 1.048-2.987 3.188l1.006 1.792c.227.404.102.92-.289 1.188L3.94 20.717a.667.667 0 00.727 1.108l12.666-7.324c.391-.226.43-.78.075-1.06L13.976 9.15zM12 2C6.477 2 2 6.477 2 12c0 1.822.487 3.53 1.338 5l8.33-8.33c.394-.394 1.032-.394 1.426 0l1.854 1.854A3.5 3.5 0 0012 12a3.5 3.5 0 003.5-3.5c0-.653-.18-1.264-.493-1.787L17.5 4.5A9.968 9.968 0 0012 2z"/></svg>`,
+  evolution:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>`,
+  railway:`<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.87 1.006C8.215.724 3.097 4.17 1.567 9.737c-.38 1.393-.455 2.81-.262 4.184l9.882-9.882 2.684 2.683-11.08 11.08c.546.643 1.156 1.24 1.83 1.77L15.8 8.81l2.683 2.683L7.2 22.776c4.202 2.086 9.38 1.42 12.92-2.12 4.15-4.15 4.41-10.73.613-15.195L18.4 7.793 15.717 5.11l2.334-2.334a11.66 11.66 0 00-4.18-1.77z"/></svg>`,
+  external:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
+};
+function ic(t){ return IC[t]||IC.external; }
+
+/* ── DADOS PADRÃO ── */
+const DEFAULT = {
+  quickLinks:[
+    {id:'ql-claude', label:'Claude',  url:'https://claude.ai',   style:'claude'},
+    {id:'ql-gpt',    label:'ChatGPT', url:'https://chatgpt.com', style:'chatgpt'},
+    {id:'ql-adapta', label:'Adapta',  url:'https://adapta.org',  style:'adapta'},
+  ],
+  currentPage:'projetos-ia',
+  pages:[
+    {
+      id:'projetos-ia', label:'Projetos IA', icon:'🤖',
+      groups:[
+        { id:'g-claude', label:'Com Claude', style:'claude', cards:[
+            {id:'soap',   name:'SOAP — Gravador de Consultas',    icon:'🎙️', desc:'Transforma o áudio da consulta médica em nota SOAP estruturada via IA.', github:'', tags:['n8n','rag'],           links:[{label:'n8n Workflow',url:'https://n8n-production-3e38.up.railway.app',icon:'n8n'},{label:'Railway',url:'https://railway.app',icon:'railway'}]},
+            {id:'aura',   name:'Aura — Assistente Profissional',  icon:'💬', desc:'Assistente de IA para orientação de pacientes em pré e pós-operatório via WhatsApp.', github:'', tags:['n8n','whatsapp','evolution','rag'], links:[{label:'n8n Workflow',url:'https://n8n-production-3e38.up.railway.app',icon:'n8n'},{label:'Evolution API',url:'https://railway.app',icon:'evolution'}]},
+            {id:'assist', name:'Assistente Pessoal',              icon:'🧠', desc:'IA no WhatsApp pessoal com acesso a e-mails, agenda, Google Drive e envio de mensagens.', github:'', tags:['n8n','whatsapp','evolution'], links:[{label:'n8n Workflow',url:'https://n8n-production-3e38.up.railway.app',icon:'n8n'},{label:'Evolution API',url:'https://railway.app',icon:'evolution'}]},
+        ]},
+        { id:'g-gpt', label:'Com ChatGPT', style:'chatgpt', cards:[
+            {id:'medai', name:'MedAI — Tumor Board CaP', icon:'🔬', desc:'Sistema de tumor board com 3 LLMs especializados para discussão de casos complexos de câncer de próstata.', github:'', tags:['llm'], links:[{label:'ChatGPT Project',url:'https://chatgpt.com',icon:'external'}]},
+        ]},
+        { id:'g-adapta', label:'Com Adapta / Skip', style:'adapta', cards:[
+            {id:'sistcir', name:'SistCIR', icon:'🤖', desc:'Plataforma de marcação de cirurgias robóticas para ambiente hospitalar.', github:'', tags:['skip','supabase','lgpd'], links:[{label:'Adapta / Skip',url:'https://adapta.org',icon:'external'},{label:'Supabase',url:'https://supabase.com/dashboard',icon:'supabase'}]},
+        ]},
+      ]
+    },
+    { id:'sites-medicos', label:'Sites Médicos', icon:'🏥', groups:[{id:'g-med',   label:'Referência Clínica', style:'default', cards:[]}]},
+    { id:'redes-sociais', label:'Redes Sociais',  icon:'📱', groups:[{id:'g-social',label:'Social Media',       style:'default', cards:[]}]},
+  ],
+  minimized:{}
+};
+
+/* ── ESTADO ── */
+let D={}, curPage='projetos-ia', ghCache={}, editTgt={}, toastTimer, tickInterval=null;
+
+/* ════════════════════════════════════════════════════════════════════════════
+   AUTENTICAÇÃO
+════════════════════════════════════════════════════════════════════════════ */
+async function signIn() {
+  if (!db) { showLoginError('Supabase não configurado.'); return; }
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) { showLoginError('Preencha e-mail e senha.'); return; }
+  const btn = document.getElementById('login-btn');
+  btn.textContent = 'Entrando…'; btn.disabled = true;
+  const { error } = await db.auth.signInWithPassword({ email, password });
+  if (error) { btn.textContent = 'Entrar'; btn.disabled = false; showLoginError('E-mail ou senha incorretos.'); return; }
+  await loadData(); startApp();
+}
+
+async function signOut() {
+  if (!db) return;
+  await db.auth.signOut(); D = {};
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.cssText = 'display:flex;z-index:9000';
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('login-btn').textContent = 'Entrar';
+  document.getElementById('login-btn').disabled = false;
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function startApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  curPage = D.currentPage || D.pages?.[0]?.id || 'projetos-ia';
+  render();
+  if (!tickInterval) tickInterval = setInterval(tick, 1000);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   STORAGE
+════════════════════════════════════════════════════════════════════════════ */
+async function loadData() {
+  if (db) {
+    try {
+      const { data, error } = await db.from('hub_config').select('value').eq('key','main').maybeSingle();
+      if (error) { console.warn('Supabase read:', error); }
+      else if (data?.value?.pages) {
+        D = data.value;
+        document.getElementById('banner').style.display = 'none';
+        return;
+      } else {
+        D = JSON.parse(JSON.stringify(DEFAULT));
+        const { error: upsertErr } = await db.from('hub_config').upsert({ key:'main', value:D, updated_at:new Date().toISOString() });
+        if (!upsertErr) { document.getElementById('banner').style.display = 'none'; return; }
+        console.warn('Supabase upsert:', upsertErr);
+      }
+    } catch(e) { console.warn('Supabase load:', e); }
+  }
+  const s = localStorage.getItem('meu-hub-v2');
+  D = s ? JSON.parse(s) : JSON.parse(JSON.stringify(DEFAULT));
+  if (!db) document.getElementById('banner').style.display = 'flex';
+}
+
+async function save() {
+  if (db) {
+    try {
+      const { error } = await db.from('hub_config').upsert({ key:'main', value:D, updated_at:new Date().toISOString() });
+      if (!error) { toast('Salvo na nuvem ✓','ok'); return; }
+    } catch(e) { console.warn('Supabase save:', e); }
+  }
+  localStorage.setItem('meu-hub-v2', JSON.stringify(D));
+  toast('Salvo localmente ✓');
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   RENDER
+════════════════════════════════════════════════════════════════════════════ */
+function render() { renderTopbar(); renderTabs(); renderPage(); }
+
+function renderTopbar() {
+  const qls = (D.quickLinks||[]).map(q=>`
+    <a href="${q.url}" target="_blank" class="ql ${q.style||'custom'}">
+      ${q.label}
+      <button class="ql-edit" onclick="openEditQLModal(event,'${q.id}')">✏</button>
+      <button class="ql-del" onclick="delQL(event,'${q.id}')">✕</button>
+    </a>`).join('');
+  const logoutBtn = db ? `<button class="btn-ghost logout" onclick="signOut()">↩ Sair</button>` : '';
+  document.getElementById('topbar').innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px">
+      <img src="icon.svg" style="height:28px;width:28px;border-radius:5px;flex-shrink:0" alt="">
+      <div class="logo">Meu <span>Hub</span></div>
+    </div>
+    <div class="topbar-clock" id="clock">--:--:--</div>
+    <div class="topbar-div"></div>
+    <div class="topbar-links">${qls}
+      <button class="btn-add-ql" onclick="openQLModal()" title="Adicionar link rápido">+</button>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-ghost" onclick="openCardModal()">+ Novo card</button>
+      <button class="btn-ghost" onclick="openConfigModal()">⚙️</button>
+      ${logoutBtn}
+    </div>`;
+  tick();
+}
+
+function renderTabs() {
+  const tabs = (D.pages||[]).map(p=>`
+    <button class="tab ${p.id===curPage?'active':''}" onclick="switchPage('${p.id}')">
+      ${p.icon||''} ${p.label}
+      <span class="tab-edit" onclick="openEditPageModal(event,'${p.id}')">✏</span>
+      ${p.id!=='projetos-ia'?`<span class="tab-del" onclick="delPage(event,'${p.id}')">✕</span>`:''}
+    </button>`).join('');
+  document.getElementById('tabs-nav').innerHTML =
+    tabs + `<button class="tab-add" onclick="openPageModal()" title="Nova aba">+</button>`;
+}
+
+function renderPage() {
+  const page = D.pages?.find(p=>p.id===curPage);
+  if (!page) { document.getElementById('main').innerHTML = '<p style="color:var(--text-muted);padding:40px">Página não encontrada.</p>'; return; }
+  const html = (page.groups||[]).map(g=>`
+    <section class="section">
+      <div class="section-header">
+        <div class="section-badge ${g.style||'default'}">${g.label}</div>
+        <div class="section-line"></div>
+        <button class="btn-sec" onclick="openCardModal('${page.id}','${g.id}')">+ card</button>
+        <button class="btn-sec" onclick="openEditGroupModal('${page.id}','${g.id}')">✏️ editar</button>
+        <button class="btn-sec danger" onclick="delGroup('${page.id}','${g.id}')">✕ grupo</button>
+      </div>
+      <div class="cards-grid" data-page="${page.id}" data-group="${g.id}">
+        ${(g.cards||[]).map(c=>cardHTML(c,g,page)).join('')}
+        <div class="empty-add" onclick="openCardModal('${page.id}','${g.id}')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <span>Adicionar card</span>
+        </div>
+      </div>
+    </section>`).join('');
+  document.getElementById('main').innerHTML =
+    html + `<div style="margin-top:6px">
+      <button class="btn-ghost" onclick="openGroupModal('${page.id}')">+ Adicionar grupo nesta aba</button>
+    </div>`;
+  fetchGH(); initSortable();
+}
+
+function cardHTML(c,g,page) {
+  const isMin = D.minimized?.[c.id];
+  const tags  = (c.tags||[]).map(t=>`<span class="tag ${t}">${t}</span>`).join('');
+  const links = (c.links||[]).map(l=>`
+    <a href="${l.url}" target="_blank" class="card-link">${ic(l.icon||'external')}<span>${l.label}</span></a>`).join('');
+  const gh = c.github ? `
+    <div class="gh-status" id="gh-${c.id}">
+      <span class="dot load"></span>
+      <a href="https://github.com/${c.github}" target="_blank" style="color:var(--blue);font-size:10px;text-decoration:none">${c.github}</a>
+      <span id="gh-txt-${c.id}" style="margin-left:auto">carregando…</span>
+    </div>` : '';
+  const hasLinks = (c.links||[]).length > 0;
+  return `
+    <div class="card ${g.style||'default'} ${isMin?'minimized':''}" id="card-${c.id}">
+      <div class="card-header">
+        <div>
+          <span class="card-icon">${c.icon||'📁'}</span>
+          <div class="card-title">${c.name}</div>
+          <div class="card-subtitle">${(c.tags||[]).join(' · ')||'&nbsp;'}</div>
+        </div>
+        <div class="card-controls">
+          <button class="card-btn" onclick="toggleMin('${c.id}')">${isMin?'▲':'▼'}</button>
+          <button class="card-btn danger" onclick="delCard('${c.id}','${g.id}','${page.id}')">✕</button>
+        </div>
+      </div>
+      <div class="card-body">
+        ${c.desc?`<p class="card-desc">${c.desc}</p>`:''}
+        ${tags?`<div class="tags">${tags}</div>`:''}
+        ${gh}
+        <div class="card-links">${links}</div>
+      </div>
+      <div class="card-footer">
+        ${hasLinks?`<button class="btn-open-all" onclick="openAll('${c.id}','${g.id}','${page.id}')">↗ Abrir tudo</button>`:''}
+        <button class="btn-edit-card" onclick="openEditCardModal('${c.id}','${g.id}','${page.id}')">✏️ Editar</button>
+      </div>
+    </div>`;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   GITHUB
+════════════════════════════════════════════════════════════════════════════ */
+async function fetchGH() {
+  const page = D.pages?.find(p=>p.id===curPage);
+  if (!page) return;
+  for (const g of page.groups||[]) {
+    for (const c of g.cards||[]) {
+      if (!c.github) continue;
+      if (ghCache[c.github]) { upGH(c.id, ghCache[c.github]); continue; }
+      try {
+        const r = await fetch(`https://api.github.com/repos/${c.github}/commits?per_page=1`);
+        if (!r.ok) throw 0;
+        const d = await r.json();
+        const info = { ok:true, ago:ago(new Date(d[0].commit.author.date)), msg:d[0].commit.message.split('\n')[0].slice(0,45) };
+        ghCache[c.github] = info; upGH(c.id, info);
+      } catch { upGH(c.id, {ok:false}); }
+    }
+  }
+}
+function upGH(id, info) {
+  const el=document.getElementById(`gh-${id}`), txt=document.getElementById(`gh-txt-${id}`);
+  if (!el||!txt) return;
+  el.querySelector('.dot').className=`dot ${info.ok?'green':'red'}`;
+  txt.textContent=info.ok?`${info.ago} · ${info.msg}`:'Erro ao buscar';
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   SORTABLE
+════════════════════════════════════════════════════════════════════════════ */
+function initSortable() {
+  if (typeof Sortable === 'undefined') return;
+  document.querySelectorAll('.cards-grid').forEach(grid => {
+    const pageId=grid.dataset.page, groupId=grid.dataset.group;
+    if (!pageId||!groupId) return;
+    Sortable.create(grid, {
+      animation:150, handle:'.card-header', filter:'.empty-add', draggable:'.card',
+      ghostClass:'card-ghost', chosenClass:'card-chosen',
+      onEnd() {
+        const newOrder=[...grid.querySelectorAll('.card')].map(el=>el.id.replace('card-',''));
+        const page=D.pages?.find(p=>p.id===pageId);
+        const group=page?.groups?.find(g=>g.id===groupId);
+        if (!group) return;
+        group.cards=newOrder.map(id=>group.cards.find(c=>c.id===id)).filter(Boolean);
+        save();
+      }
+    });
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   AÇÕES
+════════════════════════════════════════════════════════════════════════════ */
+function switchPage(id) { curPage=id; D.currentPage=id; renderTabs(); renderPage(); }
+
+function toggleMin(id) {
+  if (!D.minimized) D.minimized={};
+  D.minimized[id]=!D.minimized[id];
+  save(); renderPage();
+}
+
+function openAll(cardId,groupId,pageId) {
+  const page=D.pages?.find(p=>p.id===pageId);
+  const g=page?.groups?.find(g=>g.id===groupId);
+  const c=g?.cards?.find(c=>c.id===cardId);
+  if (!c?.links?.length) { toast('Nenhum link neste card','err'); return; }
+  if (c.links.length===1) { window.open(c.links[0].url,'_blank'); return; }
+  const total=c.links.length;
+  const linksHtml=c.links.map((l,i)=>`
+    <a href="${l.url}" target="_blank" rel="noopener" class="launch-link" id="ll-${i}"
+       onclick="markLaunchOpened('ll-${i}',${total})">
+      ${ic(l.icon||'external')}<span class="ll-lbl">${l.label}</span><span class="ll-arr">↗</span>
+    </a>`).join('');
+  openModal(`
+    <div class="modal-title">↗ Abrir links — ${c.name}</div>
+    <p class="modal-sub">Clique em cada link para abrir em nova aba.</p>
+    ${linksHtml}
+    <div class="launch-counter" id="launch-counter">0 / ${total} abertos</div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeModal()">Fechar</button></div>`);
+}
+
+let _launchCount=0;
+function markLaunchOpened(elId,total) {
+  const el=document.getElementById(elId);
+  if (el&&!el.classList.contains('opened')) {
+    el.classList.add('opened'); _launchCount++;
+    const counter=document.getElementById('launch-counter');
+    if (counter) counter.textContent=`${_launchCount} / ${total} abertos`;
+    if (_launchCount>=total) { _launchCount=0; setTimeout(closeModal,700); toast(`Todos os ${total} links abertos ✓`,'ok'); }
+  }
+}
+
+function delCard(cardId,groupId,pageId) {
+  if (!confirm('Remover este card?')) return;
+  const page=D.pages.find(p=>p.id===pageId);
+  const g=page?.groups?.find(g=>g.id===groupId);
+  if(!g) return;
+  g.cards=g.cards.filter(c=>c.id!==cardId);
+  save(); renderPage(); toast('Card removido');
+}
+function delGroup(pageId,groupId) {
+  if (!confirm('Remover este grupo e todos os seus cards?')) return;
+  const page=D.pages.find(p=>p.id===pageId);
+  if(!page) return;
+  page.groups=page.groups.filter(g=>g.id!==groupId);
+  save(); renderPage(); toast('Grupo removido');
+}
+function delPage(e,pageId) {
+  e.stopPropagation();
+  if (!confirm('Remover esta aba e todo o seu conteúdo?')) return;
+  D.pages=D.pages.filter(p=>p.id!==pageId);
+  if (curPage===pageId) curPage=D.pages[0]?.id||'';
+  save(); render(); toast('Aba removida');
+}
+function delQL(e,qlId) {
+  e.preventDefault(); e.stopPropagation();
+  if (!confirm('Remover este link rápido?')) return;
+  D.quickLinks=D.quickLinks.filter(q=>q.id!==qlId);
+  save(); renderTopbar(); toast('Link removido');
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MODAIS
+════════════════════════════════════════════════════════════════════════════ */
+function openModal(html) { document.getElementById('modal-box').innerHTML=html; document.getElementById('overlay').classList.add('open'); }
+function closeModal() { document.getElementById('overlay').classList.remove('open'); editTgt={}; }
+function closeOut(e) { if(e.target===document.getElementById('overlay')) closeModal(); }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+
+/* ── Card ── */
+function openCardModal(pageId,groupId) {
+  const tPage=pageId||curPage; editTgt={mode:'add',pageId:tPage,groupId};
+  const pOpts=(D.pages||[]).map(p=>`<option value="${p.id}" ${p.id===tPage?'selected':''}>${p.icon||''} ${p.label}</option>`).join('');
+  const page=D.pages?.find(p=>p.id===tPage);
+  const gOpts=(page?.groups||[]).map(g=>`<option value="${g.id}" ${g.id===groupId?'selected':''}>${g.label}</option>`).join('');
+  openModal(`
+    <div class="modal-title">Novo card</div>
+    <p class="modal-sub">Adicione um projeto ou atalho ao hub.</p>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Ícone</label>
+        <input class="form-input" id="m-icon" value="📁" maxlength="4"></div>
+      <div class="form-group"><label class="form-label">Nome</label>
+        <input class="form-input" id="m-name" placeholder="Nome do card"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Descrição</label>
+      <textarea class="form-textarea" id="m-desc" placeholder="O que esse card representa?"></textarea></div>
+    <div class="form-group"><label class="form-label">Aba</label>
+      <select class="form-select" id="m-page" onchange="refreshGroups()">${pOpts}</select></div>
+    <div class="form-group"><label class="form-label">Grupo / Seção</label>
+      <select class="form-select" id="m-group">${gOpts}</select></div>
+    <div class="form-group"><label class="form-label">Repositório GitHub (opcional)</label>
+      <input class="form-input" id="m-github" placeholder="usuario/repositorio"></div>
+    <div class="form-group"><label class="form-label">Links — um por linha (Nome|URL)</label>
+      <textarea class="form-textarea" id="m-links" placeholder="n8n Workflow|https://..."></textarea></div>
+    <div class="form-group"><label class="form-label">Tags (vírgula)</label>
+      <input class="form-input" id="m-tags" placeholder="n8n, whatsapp, rag"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveCard()">Salvar</button>
+    </div>`);
+}
+
+function openEditCardModal(cardId,groupId,pageId) {
+  const page=D.pages?.find(p=>p.id===pageId);
+  const g=page?.groups?.find(g=>g.id===groupId);
+  const c=g?.cards?.find(c=>c.id===cardId);
+  if(!c) return;
+  editTgt={mode:'edit',cardId,groupId,pageId};
+  const pOpts=(D.pages||[]).map(p=>`<option value="${p.id}" ${p.id===pageId?'selected':''}>${p.icon||''} ${p.label}</option>`).join('');
+  const gOpts=(page?.groups||[]).map(g=>`<option value="${g.id}" ${g.id===groupId?'selected':''}>${g.label}</option>`).join('');
+  openModal(`
+    <div class="modal-title">Editar card</div>
+    <p class="modal-sub">${c.name}</p>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Ícone</label>
+        <input class="form-input" id="m-icon" value="${c.icon||'📁'}" maxlength="4"></div>
+      <div class="form-group"><label class="form-label">Nome</label>
+        <input class="form-input" id="m-name" value="${c.name}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Descrição</label>
+      <textarea class="form-textarea" id="m-desc">${c.desc||''}</textarea></div>
+    <div class="form-group"><label class="form-label">Aba</label>
+      <select class="form-select" id="m-page" onchange="refreshGroups()">${pOpts}</select></div>
+    <div class="form-group"><label class="form-label">Grupo / Seção</label>
+      <select class="form-select" id="m-group">${gOpts}</select></div>
+    <div class="form-group"><label class="form-label">Repositório GitHub (opcional)</label>
+      <input class="form-input" id="m-github" value="${c.github||''}"></div>
+    <div class="form-group"><label class="form-label">Links (Nome|URL)</label>
+      <textarea class="form-textarea" id="m-links">${(c.links||[]).map(l=>`${l.label}|${l.url}`).join('\n')}</textarea></div>
+    <div class="form-group"><label class="form-label">Tags (vírgula)</label>
+      <input class="form-input" id="m-tags" value="${(c.tags||[]).join(', ')}"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveCard()">Salvar alterações</button>
+    </div>`);
+}
+
+function refreshGroups() {
+  const pid=document.getElementById('m-page')?.value;
+  const page=D.pages?.find(p=>p.id===pid);
+  const sel=document.getElementById('m-group');
+  if(!sel||!page) return;
+  sel.innerHTML=(page.groups||[]).map(g=>`<option value="${g.id}">${g.label}</option>`).join('');
+}
+
+function saveCard() {
+  const name=document.getElementById('m-name')?.value.trim();
+  if(!name){toast('Dê um nome ao card','err');return;}
+  const pageId=document.getElementById('m-page')?.value;
+  const groupId=document.getElementById('m-group')?.value;
+  const page=D.pages?.find(p=>p.id===pageId);
+  const g=page?.groups?.find(g=>g.id===groupId);
+  if(!g){toast('Grupo não encontrado','err');return;}
+  const linksRaw=(document.getElementById('m-links')?.value||'').trim().split('\n').filter(Boolean);
+  const links=linksRaw.map(line=>{
+    const idx=line.indexOf('|');
+    const label=idx>-1?line.slice(0,idx).trim():line.trim();
+    const url=idx>-1?line.slice(idx+1).trim():'#';
+    const lc=label.toLowerCase();
+    const iconKey=lc.includes('n8n')?'n8n':lc.includes('github')?'github':lc.includes('supabase')?'supabase':lc.includes('evolution')?'evolution':lc.includes('railway')?'railway':'external';
+    return{label,url,icon:iconKey};
+  });
+  const tags=(document.getElementById('m-tags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean);
+  const icon=document.getElementById('m-icon')?.value||'📁';
+  const desc=document.getElementById('m-desc')?.value.trim()||'';
+  const github=document.getElementById('m-github')?.value.trim()||'';
+  if(editTgt.mode==='edit'){
+    if(editTgt.groupId!==groupId||editTgt.pageId!==pageId){
+      const op=D.pages?.find(p=>p.id===editTgt.pageId);
+      const og=op?.groups?.find(g=>g.id===editTgt.groupId);
+      if(og) og.cards=og.cards.filter(c=>c.id!==editTgt.cardId);
+    }
+    const idx=g.cards.findIndex(c=>c.id===editTgt.cardId);
+    const updated={id:editTgt.cardId,name,icon,desc,github,tags,links};
+    if(idx>-1) g.cards[idx]=updated; else g.cards.push(updated);
+    toast('Card atualizado ✓','ok');
+  } else {
+    g.cards.push({id:'c-'+Date.now(),name,icon,desc,github,tags,links});
+    toast('Card adicionado ✓','ok');
+  }
+  save(); closeModal(); renderPage();
+}
+
+/* ── Quick Link ── */
+function openQLModal(){
+  openModal(`
+    <div class="modal-title">Novo link rápido</div>
+    <p class="modal-sub">Aparece fixo na barra superior em qualquer aba.</p>
+    <div class="form-group"><label class="form-label">Nome</label>
+      <input class="form-input" id="ql-label" placeholder="Ex: Railway"></div>
+    <div class="form-group"><label class="form-label">URL</label>
+      <input class="form-input" id="ql-url" placeholder="https://railway.app"></div>
+    <div class="form-group"><label class="form-label">Cor</label>
+      ${colorSelectHTML('ql-style','custom')}</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveQL()">Adicionar</button>
+    </div>`);
+}
+function saveQL(){
+  const label=document.getElementById('ql-label')?.value.trim();
+  const url=document.getElementById('ql-url')?.value.trim();
+  if(!label||!url){toast('Preencha nome e URL','err');return;}
+  if(!D.quickLinks) D.quickLinks=[];
+  D.quickLinks.push({id:'ql-'+Date.now(),label,url,style:document.getElementById('ql-style')?.value||'custom'});
+  save(); closeModal(); renderTopbar(); toast('Link adicionado ✓','ok');
+}
+
+function openEditQLModal(e, qlId) {
+  e.preventDefault(); e.stopPropagation();
+  const ql = D.quickLinks?.find(q=>q.id===qlId);
+  if (!ql) return;
+  editTgt = {qlId};
+  openModal(`
+    <div class="modal-title">✏️ Editar link rápido</div>
+    <p class="modal-sub">${ql.label}</p>
+    <div class="form-group"><label class="form-label">Nome</label>
+      <input class="form-input" id="eql-label" value="${ql.label}"></div>
+    <div class="form-group"><label class="form-label">URL</label>
+      <input class="form-input" id="eql-url" value="${ql.url}"></div>
+    <div class="form-group"><label class="form-label">Cor</label>
+      ${colorSelectHTML('eql-style', ql.style||'custom')}</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveQLEdit()">Salvar</button>
+    </div>`);
+}
+
+function saveQLEdit() {
+  const label = document.getElementById('eql-label')?.value.trim();
+  const url   = document.getElementById('eql-url')?.value.trim();
+  if (!label||!url) { toast('Preencha nome e URL','err'); return; }
+  const ql = D.quickLinks?.find(q=>q.id===editTgt.qlId);
+  if (!ql) return;
+  ql.label = label;
+  ql.url   = url;
+  ql.style = document.getElementById('eql-style')?.value || 'custom';
+  save(); closeModal(); renderTopbar(); toast('Link atualizado ✓','ok');
+}
+  
+/* ── Nova Aba ── */
+function openPageModal(){
+  openModal(`
+    <div class="modal-title">Nova aba</div>
+    <p class="modal-sub">Crie uma aba para organizar links por categoria.</p>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Ícone</label>
+        <input class="form-input" id="pg-icon" value="📂" maxlength="4"></div>
+      <div class="form-group"><label class="form-label">Nome da aba</label>
+        <input class="form-input" id="pg-label" placeholder="Ex: Ferramentas Médicas"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Nome do primeiro grupo</label>
+      <input class="form-input" id="pg-grp" value="Geral"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="savePage()">Criar aba</button>
+    </div>`);
+}
+function savePage(){
+  const label=document.getElementById('pg-label')?.value.trim();
+  if(!label){toast('Dê um nome à aba','err');return;}
+  const id='p-'+Date.now();
+  D.pages.push({id,label,icon:document.getElementById('pg-icon')?.value||'📂',
+    groups:[{id:'g-'+Date.now(),label:document.getElementById('pg-grp')?.value.trim()||'Geral',style:'default',cards:[]}]});
+  save(); closeModal(); switchPage(id); toast('Aba criada ✓','ok');
+}
+
+/* ── Novo Grupo ── */
+function openGroupModal(pageId){
+  editTgt={pageId};
+  openModal(`
+    <div class="modal-title">Novo grupo</div>
+    <p class="modal-sub">Adiciona uma seção dentro da aba atual.</p>
+    <div class="form-group"><label class="form-label">Nome do grupo</label>
+      <input class="form-input" id="grp-label" placeholder="Ex: Oncologia"></div>
+    <div class="form-group"><label class="form-label">Cor</label>
+      ${colorSelectHTML('grp-style','default')}</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveGroup()">Criar grupo</button>
+    </div>`);
+}
+function saveGroup(){
+  const label=document.getElementById('grp-label')?.value.trim();
+  if(!label){toast('Dê um nome ao grupo','err');return;}
+  const page=D.pages?.find(p=>p.id===editTgt.pageId);
+  if(!page) return;
+  page.groups.push({id:'g-'+Date.now(),label,style:document.getElementById('grp-style')?.value||'default',cards:[]});
+  save(); closeModal(); renderPage(); toast('Grupo criado ✓','ok');
+}
+
+/* ── Editar Grupo ── */
+function openEditGroupModal(pageId,groupId) {
+  const page=D.pages?.find(p=>p.id===pageId);
+  const g=page?.groups?.find(g=>g.id===groupId);
+  if(!g) return;
+  editTgt={pageId,groupId};
+  openModal(`
+    <div class="modal-title">✏️ Editar grupo</div>
+    <p class="modal-sub">${g.label}</p>
+    <div class="form-group"><label class="form-label">Nome do grupo</label>
+      <input class="form-input" id="eg-label" value="${g.label}"></div>
+    <div class="form-group"><label class="form-label">Cor</label>
+      ${colorSelectHTML('eg-style',g.style||'default')}</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveGroupEdit()">Salvar</button>
+    </div>`);
+}
+function saveGroupEdit(){
+  const label=document.getElementById('eg-label')?.value.trim();
+  if(!label){toast('Dê um nome ao grupo','err');return;}
+  const page=D.pages?.find(p=>p.id===editTgt.pageId);
+  const g=page?.groups?.find(g=>g.id===editTgt.groupId);
+  if(!g) return;
+  g.label=label; g.style=document.getElementById('eg-style')?.value||'default';
+  save(); closeModal(); renderPage(); toast('Grupo atualizado ✓','ok');
+}
+
+/* ── Editar Aba ── */
+function openEditPageModal(e,pageId) {
+  e.stopPropagation();
+  const page=D.pages?.find(p=>p.id===pageId);
+  if(!page) return;
+  editTgt={pageId};
+  openModal(`
+    <div class="modal-title">✏️ Editar aba</div>
+    <p class="modal-sub">${page.label}</p>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Ícone</label>
+        <input class="form-input" id="ep-icon" value="${page.icon||'📂'}" maxlength="4"></div>
+      <div class="form-group"><label class="form-label">Nome da aba</label>
+        <input class="form-input" id="ep-label" value="${page.label}"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="savePageEdit()">Salvar</button>
+    </div>`);
+}
+function savePageEdit(){
+  const label=document.getElementById('ep-label')?.value.trim();
+  if(!label){toast('Dê um nome à aba','err');return;}
+  const page=D.pages?.find(p=>p.id===editTgt.pageId);
+  if(!page) return;
+  page.label=label; page.icon=document.getElementById('ep-icon')?.value||'📂';
+  save(); closeModal(); render(); toast('Aba atualizada ✓','ok');
+}
+
+/* ── Configuração ── */
+function openConfigModal(){
+  openModal(`
+    <div class="modal-title">⚙️ Configuração — Supabase</div>
+    <p class="modal-sub">Siga os passos para ativar armazenamento em nuvem e autenticação segura.</p>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px"><strong style="color:var(--text)">Passo 1</strong> — SQL Editor → execute uma vez:</p>
+    <div class="sql-block">CREATE TABLE IF NOT EXISTS hub_config (
+  key         TEXT PRIMARY KEY,
+  value       JSONB,
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE hub_config ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all" ON hub_config;
+DROP POLICY IF EXISTS "auth_only" ON hub_config;
+CREATE POLICY "auth_only" ON hub_config
+  FOR ALL USING (auth.role() = 'authenticated')
+  WITH CHECK (auth.role() = 'authenticated');</div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px"><strong style="color:var(--text)">Passo 2</strong> — Crie seu usuário:</p>
+    <div class="info-box">No Supabase: <strong>Authentication → Users → Add user</strong><br>Insira seu e-mail e uma senha forte.</div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px"><strong style="color:var(--text)">Passo 3</strong> — Project Settings → API → copie:</p>
+    <div class="info-box">• <strong>Project URL</strong> → ex: https://xxxxxxxx.supabase.co<br>• <strong>anon public key</strong> → começa com eyJhbGci…</div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px"><strong style="color:var(--text)">Passo 4</strong> — No index.html do GitHub, edite:</p>
+    <div class="sql-block">const SUPABASE_URL = 'https://xxxxxxxx.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIs...';</div>
+    <div class="modal-actions"><button class="btn-save" onclick="closeModal()">Entendido</button></div>`);
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   UTILS
+════════════════════════════════════════════════════════════════════════════ */
+function tick() { const el=document.getElementById('clock'); if(el) el.textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function ago(d) { const s=(Date.now()-d)/1000; if(s<60) return 'agora'; if(s<3600) return `${Math.floor(s/60)}min atrás`; if(s<86400) return `${Math.floor(s/3600)}h atrás`; return `${Math.floor(s/86400)}d atrás`; }
+function toast(msg,type='') { const t=document.getElementById('toast'); t.textContent=msg; t.className=`toast show ${type}`; clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.className='toast',3000); }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════════════════════════════ */
+async function init() {
+  injectColorCSS();
+  if (!db) {
+    await loadData(); startApp(); return;
+  }
+  const { data: { session } } = await db.auth.getSession();
+  if (session) {
+    await loadData(); startApp();
+  } else {
+    document.getElementById('login-screen').style.display = 'flex';
+  }
+  db.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' || (!session && event === 'TOKEN_REFRESHED')) {
+      D = {};
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('login-screen').style.cssText = 'display:flex;z-index:9000';
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
