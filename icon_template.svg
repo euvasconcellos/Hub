@@ -1,0 +1,23 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="clip">
+      <rect width="512" height="512" rx="76"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#clip)">
+    <!-- Fundo navy escuro -->
+    <rect width="512" height="512" fill="#0f1d2b"/>
+
+    <!-- Perna esquerda — teal, atrás -->
+    <rect x="116" y="76" width="80" height="360" rx="40"
+          fill="#3bbaa8"/>
+
+    <!-- Perna direita — teal, atrás -->
+    <rect x="316" y="76" width="80" height="360" rx="40"
+          fill="#3bbaa8"/>
+
+    <!-- Travessa horizontal — clara, frente -->
+    <rect x="116" y="216" width="280" height="80" rx="40"
+          fill="#c8d5e0"/>
+  </g>
+</svg>
