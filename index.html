@@ -499,6 +499,7 @@ const DEFAULT = {
 
 /* ── ESTADO ── */
 let D={}, curPage='projetos-ia', ghCache={}, editTgt={}, toastTimer, tickInterval=null;
+const unlockedPages = new Set();
 
 /* ════════════════════════════════════════════════════════════════════════════
    AUTENTICAÇÃO
@@ -517,7 +518,7 @@ async function signIn() {
 
 async function signOut() {
   if (!db) return;
-  await db.auth.signOut(); D = {};
+  await db.auth.signOut(); D = {}; unlockedPages.clear();
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.cssText = 'display:flex;z-index:9000';
   document.getElementById('login-email').value = '';
@@ -535,6 +536,7 @@ function showLoginError(msg) {
 function startApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  unlockedPages.clear();
   curPage = D.currentPage || D.pages?.[0]?.id || 'projetos-ia';
   render();
   if (!tickInterval) tickInterval = setInterval(tick, 1000);
@@ -621,6 +623,10 @@ function renderTabs() {
 function renderPage() {
   const page = D.pages?.find(p=>p.id===curPage);
   if (!page) { document.getElementById('main').innerHTML = '<p style="color:var(--text-muted);padding:40px">Página não encontrada.</p>'; return; }
+  if (page.lock?.hash && !unlockedPages.has(page.id)) {
+    document.getElementById('main').innerHTML = `<div style="max-width:420px;margin:65px auto;text-align:center"><div style="font-size:40px;margin-bottom:16px">🔒</div><h2 style="margin-bottom:12px">Aba protegida</h2><p style="color:var(--text-muted);margin-bottom:20px">Digite a senha para visualizar esta aba.</p><input id="unlock-input" type="password" class="form-input" placeholder="Senha da aba" autocomplete="off" onkeydown="if(event.key==='Enter')unlockPage()"><button class="btn-login" onclick="unlockPage()">Desbloquear</button><p id="unlock-error" style="color:var(--red);margin-top:12px"></p></div>`;
+    document.getElementById('unlock-input').focus(); return;
+  }
   const html = (page.groups||[]).map(g=>`
     <section class="section">
       <div class="section-header">
@@ -642,6 +648,7 @@ function renderPage() {
     html + `<div style="margin-top:6px">
       <button class="btn-ghost" onclick="openGroupModal('${page.id}')">+ Adicionar grupo nesta aba</button>
     </div>`;
+  if(page.lock?.hash) document.getElementById('main').insertAdjacentHTML('afterbegin','<button class="btn-ghost" style="margin-bottom:18px" onclick="lockCurrentPage()">🔒 Bloquear esta aba</button>');
   fetchGH(); initSortable();
 }
 
@@ -737,6 +744,21 @@ function initSortable() {
    AÇÕES
 ════════════════════════════════════════════════════════════════════════════ */
 function switchPage(id) { curPage=id; D.currentPage=id; renderTabs(); renderPage(); }
+async function hashTabPassword(password, salt) {
+  const bytes = new TextEncoder().encode(salt + ':' + password);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function unlockPage() {
+  const page=D.pages.find(p=>p.id===curPage), field=document.getElementById('unlock-input');
+  if(!page?.lock?.hash||!field) return;
+  const hash=await hashTabPassword(field.value,page.lock.salt);
+  field.value='';
+  if(hash!==page.lock.hash){document.getElementById('unlock-error').textContent='Senha incorreta.';return;}
+  unlockedPages.add(page.id);renderPage();toast('Aba desbloqueada ✓','ok');
+}
+function lockCurrentPage(){unlockedPages.delete(curPage);renderPage();toast('Aba bloqueada');}
+
 
 function toggleMin(id) {
   if (!D.minimized) D.minimized={};
@@ -996,17 +1018,20 @@ function openPageModal(){
     </div>
     <div class="form-group"><label class="form-label">Nome do primeiro grupo</label>
       <input class="form-input" id="pg-grp" value="Geral"></div>
+    <div class="form-group"><label class="form-label">Senha da aba (opcional)</label><input type="password" class="form-input" id="pg-password" placeholder="Deixe vazio para não proteger" autocomplete="new-password"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
       <button class="btn-save" onclick="savePage()">Criar aba</button>
     </div>`);
 }
-function savePage(){
+async function savePage(){
   const label=document.getElementById('pg-label')?.value.trim();
   if(!label){toast('Dê um nome à aba','err');return;}
   const id='p-'+Date.now();
   D.pages.push({id,label,icon:document.getElementById('pg-icon')?.value||'📂',
     groups:[{id:'g-'+Date.now(),label:document.getElementById('pg-grp')?.value.trim()||'Geral',style:'default',cards:[]}]});
+  const pw=document.getElementById('pg-password').value;
+  if(pw){if(pw.length<8){D.pages.pop();toast('Use pelo menos 8 caracteres','err');return;}const salt=crypto.randomUUID();D.pages.at(-1).lock={salt,hash:await hashTabPassword(pw,salt)};}
   save(); closeModal(); switchPage(id); toast('Aba criada ✓','ok');
 }
 
@@ -1077,16 +1102,22 @@ function openEditPageModal(e,pageId) {
       <div class="form-group"><label class="form-label">Nome da aba</label>
         <input class="form-input" id="ep-label" value="${page.label}"></div>
     </div>
+    <div class="form-group"><label class="form-label">Senha da aba</label><input type="password" class="form-input" id="ep-password" placeholder="Nova senha (mínimo 8 caracteres)" autocomplete="new-password"><p style="font-size:11px;color:var(--text-muted);margin-top:6px">Deixe em branco para manter a senha atual, se houver.</p></div>
+    <div class="form-group"><label style="font-size:12px;color:var(--text-muted)"><input type="checkbox" id="ep-remove-lock"> Remover proteção desta aba</label></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
       <button class="btn-save" onclick="savePageEdit()">Salvar</button>
     </div>`);
 }
-function savePageEdit(){
+async function savePageEdit(){
   const label=document.getElementById('ep-label')?.value.trim();
   if(!label){toast('Dê um nome à aba','err');return;}
   const page=D.pages?.find(p=>p.id===editTgt.pageId);
   if(!page) return;
+  const pw=document.getElementById('ep-password').value;
+  if(pw && pw.length<8){toast('Use pelo menos 8 caracteres','err');return;}
+  if(document.getElementById('ep-remove-lock').checked){delete page.lock;unlockedPages.delete(page.id);}
+  else if(pw){const salt=crypto.randomUUID();page.lock={salt,hash:await hashTabPassword(pw,salt)};unlockedPages.delete(page.id);}
   page.label=label; page.icon=document.getElementById('ep-icon')?.value||'📂';
   save(); closeModal(); render(); toast('Aba atualizada ✓','ok');
 }
@@ -1225,7 +1256,7 @@ async function init() {
   }
   db.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT' || (!session && event === 'TOKEN_REFRESHED')) {
-      D = {};
+      D = {}; unlockedPages.clear();
       document.getElementById('app').style.display = 'none';
       document.getElementById('login-screen').style.cssText = 'display:flex;z-index:9000';
     }
