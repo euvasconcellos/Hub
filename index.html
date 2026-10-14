@@ -500,6 +500,7 @@ const DEFAULT = {
 /* ── ESTADO ── */
 let D={}, curPage='projetos-ia', ghCache={}, editTgt={}, toastTimer, tickInterval=null;
 const unlockedPages = new Set();
+const unlockedCards = new Set();
 
 /* ════════════════════════════════════════════════════════════════════════════
    AUTENTICAÇÃO
@@ -518,7 +519,7 @@ async function signIn() {
 
 async function signOut() {
   if (!db) return;
-  await db.auth.signOut(); D = {}; unlockedPages.clear();
+  await db.auth.signOut(); D = {}; unlockedPages.clear(); unlockedCards.clear();
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.cssText = 'display:flex;z-index:9000';
   document.getElementById('login-email').value = '';
@@ -536,7 +537,7 @@ function showLoginError(msg) {
 function startApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  unlockedPages.clear();
+  unlockedPages.clear(); unlockedCards.clear();
   curPage = D.currentPage || D.pages?.[0]?.id || 'projetos-ia';
   render();
   if (!tickInterval) tickInterval = setInterval(tick, 1000);
@@ -653,6 +654,10 @@ function renderPage() {
 }
 
 function cardHTML(c,g,page) {
+  if(c.lock?.hash && !unlockedCards.has(c.id)) return `<div class="card ${g.style||'default'}" id="card-${c.id}">
+    <div class="card-header"><div><span class="card-icon">🔒</span><div class="card-title">Card protegido</div><div class="card-subtitle">Senha necessária para visualizar</div></div></div>
+    <button class="btn-login" onclick="openUnlockCard('${c.id}','${g.id}','${page.id}')">🔓 Desbloquear card</button>
+  </div>`;
   const isMin = D.minimized?.[c.id];
   const tags  = (c.tags||[]).map(t=>`<span class="tag ${t}">${t}</span>`).join('');
   const links = (c.links||[]).map(l=>`
@@ -685,6 +690,7 @@ function cardHTML(c,g,page) {
       </div>
       <div class="card-footer">
         ${hasLinks?`<button class="btn-open-all" onclick="openAll('${c.id}','${g.id}','${page.id}')">↗ Abrir tudo</button>`:''}
+        ${c.lock?.hash?`<button class="btn-edit-card" onclick="lockCard('${c.id}')">🔒 Bloquear</button>`:''}
         <button class="btn-edit-card" onclick="openEditCardModal('${c.id}','${g.id}','${page.id}')">✏️ Editar</button>
       </div>
     </div>`;
@@ -698,7 +704,7 @@ async function fetchGH() {
   if (!page) return;
   for (const g of page.groups||[]) {
     for (const c of g.cards||[]) {
-      if (!c.github) continue;
+      if (!c.github || (c.lock?.hash && !unlockedCards.has(c.id))) continue;
       if (ghCache[c.github]) { upGH(c.id, ghCache[c.github]); continue; }
       try {
         const r = await fetch(`https://api.github.com/repos/${c.github}/commits?per_page=1`);
@@ -759,6 +765,24 @@ async function unlockPage() {
 }
 function lockCurrentPage(){unlockedPages.delete(curPage);renderPage();toast('Aba bloqueada');}
 
+
+function findCard(cardId,pageId,groupId){return D.pages?.find(p=>p.id===pageId)?.groups?.find(g=>g.id===groupId)?.cards?.find(c=>c.id===cardId);}
+function openUnlockCard(cardId,groupId,pageId){
+  editTgt={cardId,groupId,pageId};
+  openModal(`<div class="modal-title">🔒 Card protegido</div><p class="modal-sub">Digite a senha para acessar este card.</p>
+  <input class="form-input" type="password" id="card-unlock-password" autocomplete="off" placeholder="Senha do card" onkeydown="if(event.key==='Enter')unlockCard()">
+  <p id="card-unlock-error" style="color:var(--red);margin-top:10px"></p>
+  <div class="modal-actions"><button class="btn-cancel" onclick="closeModal()">Cancelar</button><button class="btn-save" onclick="unlockCard()">Desbloquear</button></div>`);
+  document.getElementById('card-unlock-password').focus();
+}
+async function unlockCard(){
+  const {cardId,groupId,pageId}=editTgt, c=findCard(cardId,pageId,groupId), field=document.getElementById('card-unlock-password');
+  if(!c?.lock?.hash||!field)return;
+  const hash=await hashTabPassword(field.value,c.lock.salt);field.value='';
+  if(hash!==c.lock.hash){document.getElementById('card-unlock-error').textContent='Senha incorreta.';return;}
+  unlockedCards.add(cardId);closeModal();renderPage();toast('Card desbloqueado ✓','ok');
+}
+function lockCard(cardId){unlockedCards.delete(cardId);renderPage();toast('Card bloqueado');}
 
 function toggleMin(id) {
   if (!D.minimized) D.minimized={};
@@ -861,6 +885,7 @@ function openCardModal(pageId,groupId) {
       <textarea class="form-textarea" id="m-links" placeholder="n8n Workflow|https://..."></textarea></div>
     <div class="form-group"><label class="form-label">Tags (vírgula)</label>
       <input class="form-input" id="m-tags" placeholder="n8n, whatsapp, rag"></div>
+    <div class="form-group"><label class="form-label">Senha do card (opcional)</label><input type="password" class="form-input" id="m-card-password" placeholder="Mínimo 8 caracteres" autocomplete="new-password"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
       <button class="btn-save" onclick="saveCard()">Salvar</button>
@@ -872,6 +897,7 @@ function openEditCardModal(cardId,groupId,pageId) {
   const g=page?.groups?.find(g=>g.id===groupId);
   const c=g?.cards?.find(c=>c.id===cardId);
   if(!c) return;
+  if(c.lock?.hash && !unlockedCards.has(cardId)){openUnlockCard(cardId,groupId,pageId);return;}
   editTgt={mode:'edit',cardId,groupId,pageId};
   const pOpts=(D.pages||[]).map(p=>`<option value="${p.id}" ${p.id===pageId?'selected':''}>${p.icon||''} ${p.label}</option>`).join('');
   const gOpts=(page?.groups||[]).map(g=>`<option value="${g.id}" ${g.id===groupId?'selected':''}>${g.label}</option>`).join('');
@@ -896,6 +922,8 @@ function openEditCardModal(cardId,groupId,pageId) {
       <textarea class="form-textarea" id="m-links">${(c.links||[]).map(l=>`${l.label}|${l.url}`).join('\n')}</textarea></div>
     <div class="form-group"><label class="form-label">Tags (vírgula)</label>
       <input class="form-input" id="m-tags" value="${(c.tags||[]).join(', ')}"></div>
+    <div class="form-group"><label class="form-label">Senha do card</label><input type="password" class="form-input" id="m-card-password" placeholder="Nova senha (mínimo 8 caracteres)" autocomplete="new-password"><p style="font-size:11px;color:var(--text-muted);margin-top:6px">Em branco mantém a senha atual.</p></div>
+    <div class="form-group"><label style="font-size:12px;color:var(--text-muted)"><input type="checkbox" id="m-card-remove-lock"> Remover senha deste card</label></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
       <button class="btn-save" onclick="saveCard()">Salvar alterações</button>
@@ -910,7 +938,9 @@ function refreshGroups() {
   sel.innerHTML=(page.groups||[]).map(g=>`<option value="${g.id}">${g.label}</option>`).join('');
 }
 
-function saveCard() {
+async function saveCard() {
+  const password=document.getElementById('m-card-password')?.value||'';
+  if(password && password.length<8){toast('A senha precisa ter pelo menos 8 caracteres','err');return;}
   const name=document.getElementById('m-name')?.value.trim();
   if(!name){toast('Dê um nome ao card','err');return;}
   const pageId=document.getElementById('m-page')?.value;
@@ -938,11 +968,17 @@ function saveCard() {
       if(og) og.cards=og.cards.filter(c=>c.id!==editTgt.cardId);
     }
     const idx=g.cards.findIndex(c=>c.id===editTgt.cardId);
+    const old=findCard(editTgt.cardId,editTgt.pageId,editTgt.groupId);
     const updated={id:editTgt.cardId,name,icon,desc,github,tags,links};
+    if(old?.lock && !document.getElementById('m-card-remove-lock')?.checked) updated.lock=old.lock;
+    if(password){const salt=crypto.randomUUID();updated.lock={salt,hash:await hashTabPassword(password,salt)};unlockedCards.delete(updated.id);}
+    if(document.getElementById('m-card-remove-lock')?.checked){delete updated.lock;unlockedCards.delete(updated.id);}
     if(idx>-1) g.cards[idx]=updated; else g.cards.push(updated);
     toast('Card atualizado ✓','ok');
   } else {
-    g.cards.push({id:'c-'+Date.now(),name,icon,desc,github,tags,links});
+    const created={id:'c-'+Date.now(),name,icon,desc,github,tags,links};
+    if(password){const salt=crypto.randomUUID();created.lock={salt,hash:await hashTabPassword(password,salt)};}
+    g.cards.push(created);
     toast('Card adicionado ✓','ok');
   }
   save(); closeModal(); renderPage();
@@ -1256,7 +1292,7 @@ async function init() {
   }
   db.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT' || (!session && event === 'TOKEN_REFRESHED')) {
-      D = {}; unlockedPages.clear();
+      D = {}; unlockedPages.clear(); unlockedCards.clear();
       document.getElementById('app').style.display = 'none';
       document.getElementById('login-screen').style.cssText = 'display:flex;z-index:9000';
     }
