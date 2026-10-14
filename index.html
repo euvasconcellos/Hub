@@ -691,6 +691,7 @@ function cardHTML(c,g,page) {
       <div class="card-footer">
         ${hasLinks?`<button class="btn-open-all" onclick="openAll('${c.id}','${g.id}','${page.id}')">↗ Abrir tudo</button>`:''}
         ${c.lock?.hash?`<button class="btn-edit-card" onclick="lockCard('${c.id}')">🔒 Bloquear</button>`:''}
+        <button class="btn-edit-card" onclick="openCardPasswordSettings('${c.id}','${g.id}','${page.id}')">🔐 ${c.lock?.hash?'Alterar senha':'Adicionar senha'}</button>
         <button class="btn-edit-card" onclick="openEditCardModal('${c.id}','${g.id}','${page.id}')">✏️ Editar</button>
       </div>
     </div>`;
@@ -930,6 +931,12 @@ function openEditCardModal(cardId,groupId,pageId) {
     </div>`);
 }
 
+function openCardPasswordSettings(cardId,groupId,pageId) {
+  openEditCardModal(cardId,groupId,pageId);
+  const input=document.getElementById('m-card-password');
+  if(input) { input.scrollIntoView({block:'center'}); input.focus(); }
+}
+
 function refreshGroups() {
   const pid=document.getElementById('m-page')?.value;
   const page=D.pages?.find(p=>p.id===pid);
@@ -962,13 +969,14 @@ async function saveCard() {
   const desc=document.getElementById('m-desc')?.value.trim()||'';
   const github=document.getElementById('m-github')?.value.trim()||'';
   if(editTgt.mode==='edit'){
+    const originalCard=findCard(editTgt.cardId,editTgt.pageId,editTgt.groupId);
     if(editTgt.groupId!==groupId||editTgt.pageId!==pageId){
       const op=D.pages?.find(p=>p.id===editTgt.pageId);
       const og=op?.groups?.find(g=>g.id===editTgt.groupId);
       if(og) og.cards=og.cards.filter(c=>c.id!==editTgt.cardId);
     }
     const idx=g.cards.findIndex(c=>c.id===editTgt.cardId);
-    const old=findCard(editTgt.cardId,editTgt.pageId,editTgt.groupId);
+    const old=originalCard;
     const updated={id:editTgt.cardId,name,icon,desc,github,tags,links};
     if(old?.lock && !document.getElementById('m-card-remove-lock')?.checked) updated.lock=old.lock;
     if(password){const salt=crypto.randomUUID();updated.lock={salt,hash:await hashTabPassword(password,salt)};unlockedCards.delete(updated.id);}
