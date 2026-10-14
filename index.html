@@ -1115,9 +1115,93 @@ CREATE POLICY "auth_only" ON hub_config
     <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px"><strong style="color:var(--text)">Passo 4</strong> — No index.html do GitHub, edite:</p>
     <div class="sql-block">const SUPABASE_URL = 'https://xxxxxxxx.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIs...';</div>
-    <div class="modal-actions"><button class="btn-save" onclick="closeModal()">Entendido</button></div>`);
+    <div class="modal-actions">
+  <button class="btn-cancel" onclick="openChangePasswordModal()">🔐 Alterar senha</button>
+  <button class="btn-save" onclick="closeModal()">Entendido</button>
+</div>`);
 }
 
+
+function openChangePasswordModal() {
+  openModal(`
+    <div class="modal-title">🔐 Alterar senha</div>
+    <p class="modal-sub">Digite sua nova senha.</p>
+
+    <form onsubmit="changeHubPassword(event)">
+      <div class="form-group">
+        <label class="form-label">Nova senha</label>
+        <input class="form-input" id="new-hub-password"
+          type="password" minlength="8" required
+          autocomplete="new-password">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Confirmar nova senha</label>
+        <input class="form-input" id="confirm-hub-password"
+          type="password" minlength="8" required
+          autocomplete="new-password">
+      </div>
+
+      <p id="password-change-error"
+         style="color:#e05252;font-size:12px"></p>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-cancel"
+          onclick="openConfigModal()">Voltar</button>
+        <button type="submit" class="btn-save"
+          id="change-password-btn">Salvar nova senha</button>
+      </div>
+    </form>
+  `);
+}
+
+async function changeHubPassword(event) {
+  event.preventDefault();
+
+  const password = document.getElementById('new-hub-password').value;
+  const confirm = document.getElementById('confirm-hub-password').value;
+  const errorEl = document.getElementById('password-change-error');
+  const btn = document.getElementById('change-password-btn');
+
+  if (password !== confirm) {
+    errorEl.textContent = 'As senhas não coincidem.';
+    return;
+  }
+
+  if (!db) {
+    errorEl.textContent = 'Supabase indisponível.';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+  errorEl.textContent = '';
+
+  try {
+    const { data: { user }, error: sessionError } =
+      await db.auth.getUser();
+
+    if (sessionError || !user) {
+      throw new Error('Sessão expirada. Entre novamente no Hub.');
+    }
+
+    const { error } = await db.auth.updateUser({
+      password: password
+    });
+
+    if (error) throw error;
+
+    closeModal();
+    toast('Senha alterada com sucesso!', 'ok');
+  } catch (err) {
+    errorEl.textContent = err.message || 'Erro ao alterar senha.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Salvar nova senha';
+  }
+}
+
+                        
 /* ════════════════════════════════════════════════════════════════════════════
    UTILS
 ════════════════════════════════════════════════════════════════════════════ */
