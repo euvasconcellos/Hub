@@ -12,6 +12,8 @@
 <link rel="apple-touch-icon" href="icon.svg">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>window.addEventListener("load",()=>{if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"})</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -364,6 +366,9 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:#444c56}
+
+/* TRADING DASHBOARD */
+.tr-wrap{max-width:1320px;margin:auto}.tr-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:22px}.tr-head h1{font-size:23px;margin-bottom:5px}.tr-muted{color:var(--text-muted);font-size:12px}.tr-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.tr-btn{border:1px solid var(--border);border-radius:7px;background:var(--bg-card);color:var(--text);padding:9px 13px;cursor:pointer;font:inherit;font-size:12px}.tr-btn:hover{border-color:var(--blue)}.tr-btn.primary{background:var(--blue);color:#0d1117;border-color:var(--blue);font-weight:600}.tr-select{border:1px solid var(--border);background:var(--bg-card);color:var(--text);padding:9px;border-radius:7px}.tr-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.tr-panel{background:var(--bg-card);border:1px solid var(--border);border-radius:11px;padding:18px;min-width:0}.tr-stat-label{font-size:11px;color:var(--text-muted);margin-bottom:10px}.tr-stat-value{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace}.tr-positive{color:var(--green)}.tr-negative{color:var(--red)}.tr-columns{display:grid;grid-template-columns:1.1fr 1fr;gap:16px;margin-top:16px}.tr-panel h3{font-size:14px;margin-bottom:14px}.tr-weekdays,.tr-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.tr-weekdays>div{text-align:center;font-size:11px;color:var(--text-muted);padding:7px 0}.tr-day{border:1px solid var(--border-subtle);border-radius:6px;min-height:66px;padding:6px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;background:#10161d;color:var(--text);cursor:pointer}.tr-day:hover{border-color:var(--blue)}.tr-day.profit{background:rgba(63,185,80,.13);border-color:rgba(63,185,80,.25)}.tr-day.loss{background:rgba(248,81,73,.13);border-color:rgba(248,81,73,.25)}.tr-day strong{font-size:10px;font-family:'JetBrains Mono',monospace;white-space:nowrap}.tr-day span{font-size:11px;color:var(--text-muted)}.tr-chart{width:100%;height:210px;display:block}.tr-empty{color:var(--text-muted);font-size:12px;line-height:1.7;padding:20px 0}.tr-footer{margin-top:14px;color:var(--text-dim);font-size:11px}.tr-table{width:100%;border-collapse:collapse;font-size:12px}.tr-table td,.tr-table th{padding:10px 6px;text-align:left;border-bottom:1px solid var(--border-subtle)}.tr-table th{color:var(--text-muted);font-weight:500}.tr-table td:last-child{text-align:right}.tr-scroll{overflow-x:auto}@media(max-width:850px){.tr-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.tr-columns{grid-template-columns:1fr}}@media(max-width:480px){.tr-day{min-height:56px;padding:3px;gap:5px}.tr-day strong{font-size:8px}.tr-stat-value{font-size:18px}}
 </style>
 </head>
 <body>
@@ -628,6 +633,7 @@ function renderPage() {
     document.getElementById('main').innerHTML = `<div style="max-width:420px;margin:65px auto;text-align:center"><div style="font-size:40px;margin-bottom:16px">🔒</div><h2 style="margin-bottom:12px">Aba protegida</h2><p style="color:var(--text-muted);margin-bottom:20px">Digite a senha para visualizar esta aba.</p><input id="unlock-input" type="password" class="form-input" placeholder="Senha da aba" autocomplete="off" onkeydown="if(event.key==='Enter')unlockPage()"><button class="btn-login" onclick="unlockPage()">Desbloquear</button><p id="unlock-error" style="color:var(--red);margin-top:12px"></p></div>`;
     document.getElementById('unlock-input').focus(); return;
   }
+  if (page.label?.trim().toLocaleLowerCase('pt-BR') === 'trading') { renderTrading(); return; }
   const html = (page.groups||[]).map(g=>`
     <section class="section">
       <div class="section-header">
@@ -695,6 +701,90 @@ function cardHTML(c,g,page) {
         <button class="btn-edit-card" onclick="openEditCardModal('${c.id}','${g.id}','${page.id}')">✏️ Editar</button>
       </div>
     </div>`;
+}
+
+
+/* ===== DIÁRIO DE PERFORMANCE (aba Trading) ===== */
+let trMonth = new Date().getMonth(), trYear = new Date().getFullYear();
+const trBRL = v => new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v||0);
+const trNum = v => Number.isFinite(v) ? v.toLocaleString('pt-BR',{maximumFractionDigits:2}) : '—';
+const trEntries = () => Array.isArray(D.tradingEntries) ? D.tradingEntries : [];
+function trStats(rows){
+  const sum = k => rows.reduce((a,r)=>a+(Number(r[k])||0),0);
+  const wins=sum('wins'), total=sum('operations'), grossProfit=sum('grossProfit'), grossLoss=sum('grossLoss');
+  return {net:sum('net'),costs:sum('costs'),days:rows.length,positive:rows.filter(r=>r.net>0).length,negative:rows.filter(r=>r.net<0).length,wins,total,rate:total?wins/total*100:null,pf:grossLoss>0?grossProfit/grossLoss:null};
+}
+function trChart(rows){
+  const list=[...rows].sort((a,b)=>a.date.localeCompare(b.date));
+  if(!list.length)return '<p class="tr-empty">Importe um relatório ou adicione um resultado para visualizar a curva de performance.</p>';
+  let balance=0;const values=[0,...list.map(r=>(balance+=Number(r.net)||0))];
+  let min=Math.min(...values),max=Math.max(...values);if(min===max){min-=1;max+=1}
+  const x=i=>40+(i/(values.length-1))*650,y=v=>175-(v-min)/(max-min)*145;
+  const points=values.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const zero=y(0);
+  return `<svg class="tr-chart" viewBox="0 0 710 210" preserveAspectRatio="none" role="img" aria-label="Curva de resultado acumulado"><line x1="40" y1="${zero}" x2="690" y2="${zero}" stroke="#30363d" stroke-dasharray="5 4"/><polyline points="${points}" fill="none" stroke="#3fb950" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/><text x="40" y="200" fill="#7d8590" font-size="12">${list[0].date.slice(8)}</text><text x="655" y="200" fill="#7d8590" font-size="12">${list.at(-1).date.slice(8)}</text><text x="42" y="17" fill="#7d8590" font-size="12">${trBRL(max)}</text><text x="42" y="188" fill="#7d8590" font-size="12">${trBRL(min)}</text></svg>`;
+}
+function renderTrading(){
+  const all=trEntries(), rows=all.filter(r=>r.date?.startsWith(`${trYear}-${String(trMonth+1).padStart(2,'0')}`));
+  const st=trStats(rows), days=new Date(trYear,trMonth+1,0).getDate(), first=new Date(trYear,trMonth,1).getDay();
+  const byDay=new Map();for(const r of rows){const day=Number(r.date.slice(8));byDay.set(day,(byDay.get(day)||0)+Number(r.net||0));}
+  const names=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const calendar=Array(first).fill('<div></div>').join('')+Array.from({length:days},(_,i)=>{const day=i+1,v=byDay.get(day),has=byDay.has(day);return `<button class="tr-day ${has?(v>=0?'profit':'loss'):''}" onclick="trOpenDay(${day})"><span>${day}</span>${has?`<strong class="${v>=0?'tr-positive':'tr-negative'}">${v>0?'+':''}${trBRL(v)}</strong>`:''}</button>`}).join('');
+  const opts=Array.from({length:12},(_,i)=>`<option value="${i}" ${i===trMonth?'selected':''}>${new Date(2026,i,1).toLocaleDateString('pt-BR',{month:'long'})}</option>`).join('');
+  const yrs=[...new Set([trYear,new Date().getFullYear(),...all.map(r=>Number(r.date?.slice(0,4))).filter(Number.isFinite)])].sort((a,b)=>b-a);
+  const metric=(label,value,cls='')=>`<div class="tr-panel"><div class="tr-stat-label">${label}</div><div class="tr-stat-value ${cls}">${value}</div></div>`;
+  document.getElementById('main').innerHTML=`<div class="tr-wrap"><div class="tr-head"><div><h1>📈 Performance de Trading</h1><p class="tr-muted">Resultados diários e evolução da performance</p></div><div class="tr-actions"><select class="tr-select" aria-label="Mês" onchange="trMonth=+this.value;renderTrading()">${opts}</select><select class="tr-select" aria-label="Ano" onchange="trYear=+this.value;renderTrading()">${yrs.map(y=>`<option ${y===trYear?'selected':''}>${y}</option>`).join('')}</select><button class="tr-btn" onclick="trOpenDay()">+ Lançamento</button><button class="tr-btn primary" onclick="document.getElementById('tr-pdf').click()">↑ Importar PDF</button><input id="tr-pdf" type="file" accept="application/pdf,.pdf" style="display:none" onchange="trImportPDF(this)"></div></div>
+  <div class="tr-stats">${metric('Resultado líquido',trBRL(st.net),st.net>=0?'tr-positive':'tr-negative')}${metric('Dias positivos',`${st.positive} / ${st.days}`)}${metric('Taxa de acerto',st.rate===null?'—':`${trNum(st.rate)}%`)}${metric('Fator de lucro',st.pf===null?'—':trNum(st.pf))}${metric('Operações',trNum(st.total))}${metric('Média por dia operado',st.days?trBRL(st.net/st.days):'—')}${metric('Dias negativos',String(st.negative))}${metric('Custos',trBRL(st.costs))}</div>
+  <div class="tr-panel"><h3>Curva de resultado acumulado</h3>${trChart(rows)}</div>
+  <div class="tr-columns"><div class="tr-panel"><h3>Calendário de resultados</h3><div class="tr-weekdays">${names.map(n=>`<div>${n}</div>`).join('')}</div><div class="tr-days">${calendar}</div><div class="tr-footer">Clique em um dia para consultar ou editar o resultado.</div></div><div class="tr-panel"><h3>Relatórios registrados no mês</h3><div class="tr-scroll">${rows.length?`<table class="tr-table"><thead><tr><th>Data</th><th>Conta</th><th>Operações</th><th>Resultado</th></tr></thead><tbody>${[...rows].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`<tr><td>${r.date.split('-').reverse().join('/')}</td><td>${trEsc(r.account||'—')}</td><td>${r.operations||0}</td><td class="${r.net>=0?'tr-positive':'tr-negative'}">${trBRL(r.net)}</td></tr>`).join('')}</tbody></table>`:'<p class="tr-empty">Nenhum resultado registrado neste mês.</p>'}</div><div class="tr-footer">Os dados são salvos na configuração protegida do Hub no Supabase. PDFs não são armazenados.</div></div></div></div>`;
+}
+function trEsc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function trOpenDay(day){
+  const date=`${trYear}-${String(trMonth+1).padStart(2,'0')}-${String(day||new Date().getDate()).padStart(2,'0')}`;
+  const entries=trEntries().filter(r=>r.date===date);
+  openModal(`<div class="modal-title">📅 Resultado diário</div><p class="modal-sub">Registre o resumo da performance. Para múltiplas contas, use uma conta diferente em cada lançamento.</p><div class="form-group"><label class="form-label">Data</label><input id="tr-date" type="date" class="form-input" value="${date}"></div><div class="form-group"><label class="form-label">Conta / mesa</label><input id="tr-account" class="form-input" placeholder="Ex.: Profit / Conta principal" value="${entries.length===1?trEsc(entries[0].account):''}"></div><div class="form-group"><label class="form-label">Resultado líquido (R$)</label><input id="tr-net" class="form-input" type="number" step="0.01" value="${entries.length===1?entries[0].net:''}"></div><div class="form-group"><label class="form-label">Total de operações</label><input id="tr-ops" class="form-input" type="number" min="0" value="${entries.length===1?entries[0].operations:''}"></div><div class="form-group"><label class="form-label">Operações vencedoras</label><input id="tr-wins" class="form-input" type="number" min="0" value="${entries.length===1?entries[0].wins:''}"></div><div class="modal-actions"><button class="btn-cancel" onclick="closeModal()">Cancelar</button><button class="btn-save" onclick="trSaveManual()">Salvar</button></div>`);
+}
+async function trSaveManual(){
+  const date=document.getElementById('tr-date').value,account=document.getElementById('tr-account').value.trim()||'Conta principal',raw=document.getElementById('tr-net').value,operations=Number(document.getElementById('tr-ops').value||0),wins=Number(document.getElementById('tr-wins').value||0);
+  if(!date||raw===''||!Number.isFinite(Number(raw))||wins>operations||wins<0||operations<0){toast('Confira data, resultado e operações.','err');return;}
+  const net=Number(raw), entries=trEntries(),idx=entries.findIndex(r=>r.date===date&&r.account===account);
+  if(idx>=0&&!confirm('Já existe um resultado para esta conta e data. Deseja substituí-lo?'))return;
+  const entry={date,account,net,operations,wins,grossProfit:net>0?net:0,grossLoss:net<0?-net:0,costs:0,source:'manual'};
+  if(idx>=0)entries[idx]=entry;else entries.push(entry);D.tradingEntries=entries;
+  trYear=Number(date.slice(0,4));trMonth=Number(date.slice(5,7))-1;await save();closeModal();renderTrading();
+}
+function trExtract(text){
+  const get=(label)=>{const match=text.match(new RegExp(label+'\\s*R\\$\\s*([-\\d.,]+)','i'));return match?Number(match[1].replace(/\\./g,'').replace(',','.')):null;};
+  const num=(label)=>{const match=text.match(new RegExp(label+'\\s*(\\d+)','i'));return match?Number(match[1]):null;};
+  const dateMatch=text.match(/Data\s*:\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+  const accountMatch=text.match(/Conta\s*:\s*(\d+)/i);
+  const net=get('Saldo Líquido Total'),operations=num('Número Total de Operações'),wins=num('Operações Vencedoras');
+  if(!dateMatch||net===null||operations===null||wins===null)throw Error('Este PDF não parece ser o Resumo de Performance esperado. Confira o formato do relatório.');
+  return {date:`${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`,account:accountMatch?accountMatch[1]:'Conta principal',net,operations,wins,grossProfit:get('Lucro Bruto')||0,grossLoss:get('Prejuízo Bruto')||0,costs:Math.abs(get('Custos')||0),source:'profit-pdf'};
+}
+async function trImportPDF(input){
+  const file=input.files?.[0];if(!file)return;
+  try{
+    toast('Lendo relatório PDF…');
+    if(!window.pdfjsLib)throw Error('Leitor PDF indisponível. Verifique sua conexão.');
+    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+    let text='';for(let p=1;p<=pdf.numPages;p++){
+      const page=await pdf.getPage(p),content=await page.getTextContent(),lines=new Map();
+      for(const item of content.items){if(!item.str?.trim())continue;const y=Math.round(item.transform[5]);if(!lines.has(y))lines.set(y,[]);lines.get(y).push({x:item.transform[4],text:item.str});}
+      for(const [,items] of [...lines].sort((a,b)=>b[0]-a[0])){
+        const left=items.filter(i=>i.x<315).sort((a,b)=>a.x-b.x).map(i=>i.text).join(' ');
+        const right=items.filter(i=>i.x>=315).sort((a,b)=>a.x-b.x).map(i=>i.text).join(' ');
+        text+='\n'+left+'\n'+right;
+      }
+    }
+    const entry=trExtract(text), entries=trEntries(),idx=entries.findIndex(r=>r.date===entry.date&&r.account===entry.account);
+    if(idx>=0&&!confirm(`Já existe resultado para ${entry.date} / ${entry.account}. Substituir pelo PDF?`))return;
+    if(!confirm(`Importar resumo?\nData: ${entry.date}\nConta: ${entry.account}\nResultado líquido: ${trBRL(entry.net)}\nOperações: ${entry.operations}\nVencedoras: ${entry.wins}`))return;
+    if(idx>=0)entries[idx]=entry;else entries.push(entry);
+    D.tradingEntries=entries;trYear=Number(entry.date.slice(0,4));trMonth=Number(entry.date.slice(5,7))-1;
+    await save();renderTrading();toast('Relatório importado ✓','ok');
+  }catch(err){console.error(err);toast(err.message||'Erro ao importar PDF','err');alert('Não foi possível importar: '+(err.message||'Erro desconhecido'));}
+  finally{input.value='';}
 }
 
 /* ════════════════════════════════════════════════════════════════════════════
